@@ -27,7 +27,7 @@ body, html {
     border: 3px solid white;
     border-radius: 3px;
 }
-#filter {
+#video-filter {
   position: absolute;
   bottom: 0;
   right: 0;
