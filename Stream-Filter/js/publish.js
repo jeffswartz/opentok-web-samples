@@ -71,26 +71,7 @@
     return OT.getUserMedia().then(function gotMedia(mediaStream) {
       var filteredCanvas = getFilteredCanvas(mediaStream);
 
-      var audioCtx = new AudioContext();
-      var audioSource = audioCtx.createMediaStreamSource(mediaStream);
-      var delayNode = audioCtx.createDelay(100)
-      var feedbackNode = audioCtx.createGain();
-      var bypassNode = audioCtx.createGain();
-      var masterNode = audioCtx.createGain();
-
-      delayNode.delayTime.value = 0.5;
-      feedbackNode.gain.value = 0.4;
-      bypassNode.gain.value = 1;
-
-      audioSource.connect(delayNode);
-      delayNode.connect(feedbackNode);
-      feedbackNode.connect(delayNode);
-
-      delayNode.connect(bypassNode);
-      bypassNode.connect(masterNode);
-      audioSource.connect(masterNode);
-
-      masterNode.connect(audioCtx.destination);
+      exports.AudioFilters.init(mediaStream);
 
       var publisherOptions = {
         insertMode: 'append',
@@ -99,7 +80,7 @@
         // Pass in the canvas stream video track as our custom videoSource
         videoSource: filteredCanvas.canvas.captureStream(30).getVideoTracks()[0],
         // Pass in the audio track from our the mediaStream with a delay effect added
-        audioSource: audioSource
+        audioSource: mediaStream.getAudioTracks()[0]
       };
       return new Promise(function promise(resolve, reject) {
         var publisher = OT.initPublisher('publisher', publisherOptions, function initComplete(err) {
