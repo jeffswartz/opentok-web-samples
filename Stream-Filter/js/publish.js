@@ -71,7 +71,12 @@
     return OT.getUserMedia().then(function gotMedia(mediaStream) {
       var filteredCanvas = getFilteredCanvas(mediaStream);
 
-      exports.AudioFilters.init(mediaStream);
+      var audioElement = document.getElementById('audio-sample');
+      audioElement.play();
+      audioElement.volume = 0;
+      var audioStream = audioElement.captureStream();
+      console.log(audioStream)
+      exports.AudioFilters.init(audioStream);
 
       var publisherOptions = {
         insertMode: 'append',
@@ -80,7 +85,7 @@
         // Pass in the canvas stream video track as our custom videoSource
         videoSource: filteredCanvas.canvas.captureStream(30).getVideoTracks()[0],
         // Pass in the audio track from our the mediaStream with a delay effect added
-        audioSource: mediaStream.getAudioTracks()[0]
+        audioSource: audioStream.getAudioTracks()[0]
       };
       return new Promise(function promise(resolve, reject) {
         var publisher = OT.initPublisher('publisher', publisherOptions, function initComplete(err) {
