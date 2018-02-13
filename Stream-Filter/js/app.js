@@ -57,7 +57,7 @@
       oscillator.type = 'square';
       oscillator.frequency.setValueAtTime(2, audioCtx.currentTime);
       oscillator.connect(audioCtx.destination);
-      //oscillator.start();
+      oscillator.start();
       var gainNode = audioCtx.createGain();
       source.connect(gainNode);
       gainNode.gain.value = 0;
