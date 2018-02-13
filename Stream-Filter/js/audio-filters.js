@@ -15,6 +15,17 @@
       return stream.getAudioTracks()[0];
     },
 
+    getToneTrack: function getToneTrack() {
+      audioCtx = new AudioContext();
+      mediaStream = audioCtx.createMediaStreamDestination().stream;
+      var oscillator = audioCtx.createOscillator();
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+      oscillator.connect(audioCtx.destination);
+      oscillator.start();
+      return mediaStream.getAudioTracks()[0];
+    },
+
     none: function none() {
       audioSource.disconnect();
     },

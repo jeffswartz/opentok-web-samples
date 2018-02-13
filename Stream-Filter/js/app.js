@@ -1,9 +1,9 @@
 /* global OT */
 
-(function closure(exports) {
   var apiKey;
   var sessionId;
   var token;
+  var publisher;
 
   function handleError(error) {
     if (error) {
@@ -29,40 +29,59 @@
       console.log('You were disconnected from the session.', event.reason);
     });
 
-    var publishPromise = exports.publish();
-
     // Connect to the session
     session.connect(token, function callback(error) {
       if (error) {
         handleError(error);
       } else {
         // If the connection is successful, initialize a publisher and publish to the session
-        publishPromise.then(function publishThen(publisher) {
-          session.publish(publisher, handleError);
-        }).catch(handleError);
+        session.publish(publisher, function(error) {
+          debugger;
+        });
       }
     });
   }
 
-  // See the config.js file.
-  if (exports.API_KEY && exports.TOKEN && exports.SESSION_ID) {
-    apiKey = exports.API_KEY;
-    sessionId = exports.SESSION_ID;
-    token = exports.TOKEN;
-    initializeSession();
-  } else if (exports.SAMPLE_SERVER_BASE_URL) {
     // Make an Ajax request to get the OpenTok API key, session ID, and token from the server
-    fetch(exports.SAMPLE_SERVER_BASE_URL + '/session').then(function fetchThen(res) {
+    fetch('https://swartz-learning-ot-php.herokuapp.com/session').then(function fetchThen(res) {
       return res.json();
     }).then(function jsonThen(json) {
       apiKey = json.apiKey;
       sessionId = json.sessionId;
       token = json.token;
 
-      initializeSession();
+      var audioCtx = new AudioContext();
+      var source = audioCtx.createMediaStreamDestination();
+      var mediaStream = source.stream;
+      var oscillator = audioCtx.createOscillator();
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(2, audioCtx.currentTime);
+      oscillator.connect(audioCtx.destination);
+      //oscillator.start();
+      var gainNode = audioCtx.createGain();
+      source.connect(gainNode);
+      gainNode.gain.value = 0;
+      gainNode.connect(audioCtx.destination);
+
+      var audioTrack = mediaStream.getAudioTracks()[0];
+      var publisherOptions = {
+        insertMode: 'append',
+        width: '100%',
+        height: '100%',
+        // Pass in the canvas stream video track as our custom videoSource
+        videoSource: null,
+        // Pass in the audio track from our the mediaStream with a delay effect added
+        audioSource: audioTrack
+      };
+      publisher = OT.initPublisher('publisher', publisherOptions, function initComplete(err) {
+        if (err) {
+          console.error(err);
+        } else {
+          initializeSession()
+        }
+      });
+
     }).catch(function catchErr(error) {
       handleError(error);
       alert('Failed to get opentok sessionId and token. Make sure you have updated the config.js file.');
     });
-  }
-})(exports);
