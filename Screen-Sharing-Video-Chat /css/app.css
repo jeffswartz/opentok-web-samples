@@ -11,7 +11,7 @@ body, html {
     margin-right: auto;
 }
 
-#subscriber {
+#big-video {
     position: absolute;
     left: 0;
     top: 0;
@@ -42,8 +42,9 @@ body, html {
     border-radius: 3px;
 }
 
-#screen {
+#small-video {
     position: absolute;
+    display: none;
     width: 360px;
     height: 240px;
     bottom: 20px;
@@ -53,22 +54,11 @@ body, html {
     border-radius: 3px;
 }
 
-.toggle-button-on {
-    background-color: green;
-}
-
-.toggle-button-off {
-    background-color: red;
-}
-.toggle-button {
+#screen-sharing {
+    display: none;
     position: absolute;
     z-index: 1000;
-    height: 60px;
-    width: 60px;
-    border-radius: 50%;
-}
-
-#screen-sharing {
     bottom: 20px;
-    left: 400px;
+    width: 100px;
+    left: calc(50% - 50px);
 }

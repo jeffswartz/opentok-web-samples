@@ -1,12 +1,16 @@
 /* global OT API_KEY TOKEN SESSION_ID SAMPLE_SERVER_BASE_URL */
 
-let apiKey;
-let sessionId;
-let token;
-let screenPublisher;
-let session;
-let publisher;
-let canPublish = false;
+var apiKey;
+var sessionId;
+var token;
+var session;
+var screenSharingSubscriberContainer;
+var cameraSubscriberContainer;
+var publishingScreen = false;
+var screenSharingButton = document.getElementById('screen-sharing');
+var bigVideoContainer = document.getElementById('big-video');
+var smallVideoContainer = document.getElementById('small-video');
+
 // Handling all of our errors here by alerting them
 function handleError(error) {
   if (error) {
@@ -14,39 +18,57 @@ function handleError(error) {
   }
 }
 
-
 function toggleScreen() {
-  const screenSharing = document.getElementById('screen-sharing');
-  // If the screen publisher is connected to the session, unpublish screen and re-publish camera footage
-  if (screenPublisher.session) {
+  if (publishingScreen) {
     session.unpublish(screenPublisher);
-    session.publish(publisher, handleError);
-    screenSharing.classList.remove('toggle-button-on');
-    screenSharing.classList.add('toggle-button-off');
-  // Else, if the camera publisher is connected to the session, unpublish camera footage and re-publish screen
-  } else if (publisher.session) {
-    session.unpublish(publisher);
-    if (canPublish) {
-      session.publish(screenPublisher, handleError);
-    }
-    screenSharing.classList.add('toggle-button-on');
-    screenSharing.classList.remove('toggle-button-off');
+  } else  {
+    screenSharingButton.disabled = true;
+    var screenPublisher = OT.initPublisher('big-video', {
+      insertMode: 'append',
+      width: '100%',
+      height: '100%',
+      videoSource: 'screen'
+    }, function handleInitPublishError(error) {
+      if (error) {
+        handleError(error);
+        screenSharingButton.disabled = false;
+        screenSharingButton.innerHTML = 'Share Screen';
+        publishingScreen = false;
+      } else {
+        screenSharingButton.disabled = false;
+        screenSharingButton.innerHTML = 'Stop Sharing Screen';
+        publishingScreen = true;
+      }
+    });
+    session.publish(screenPublisher, handleError);
+    arrangeSubscribers();
+    screenPublisher.on('streamDestroyed', function streamDestroyedHandler() {
+      publishingScreen = false;
+      screenSharingButton.innerHTML = 'Share Screen';
+      arrangeSubscribers();
+    });
+    screenSharingButton.innerHTML = 'Stop Sharing Screen';
   }
 }
 
-function preventDefaults() {
-  // If a stream is destroyed BY THIS CLIENT's publishers override default behaviour.
-  publisher.on('streamDestroyed', function preventSessionDefault(event) {
-    if (event.stream.connection.connectionId === session.connection.connectionId) {
-      event.preventDefault();
+function arrangeSubscribers() {
+  if (publishingScreen) {
+    smallVideoContainer.appendChild(cameraSubscriberContainer);
+    smallVideoContainer.style.display = 'block';
+  } else if (screenSharingSubscriberContainer) {
+    if (cameraSubscriberContainer) {
+      smallVideoContainer.appendChild(cameraSubscriberContainer);
+      smallVideoContainer.style.display = 'block';
+    } else {
+      smallVideoContainer.style.display = 'none';
     }
-  });
-
-  screenPublisher.on('streamDestroyed', function preventPublisherDefault(event) {
-    if (event.stream.connection.connectionId === session.connection.connectionId) {
-      event.preventDefault();
+    bigVideoContainer.appendChild(screenSharingSubscriberContainer);
+  } else {
+    if (cameraSubscriberContainer) {
+      bigVideoContainer.appendChild(cameraSubscriberContainer);
     }
-  });
+    smallVideoContainer.style.display = 'none';
+  }
 }
 
 function initializeSession() {
@@ -54,37 +76,49 @@ function initializeSession() {
 
   // Subscribe to a newly created stream
   session.on('streamCreated', function streamCreated(event) {
-    session.subscribe(event.stream, 'subscriber', {
+    var container =  document.createElement('div');
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.position = 'absolute';
+    session.subscribe(event.stream, container, {
       insertMode: 'append',
       width: '100%',
       height: '100%'
     }, handleError);
+    if (event.stream.videoType === 'screen') {
+      screenSharingSubscriberContainer = container;
+    } else {
+      cameraSubscriberContainer = container;
+    }
+    arrangeSubscribers();
   });
+
+  session.on('streamDestroyed', function streamDestroyed(event) {
+    if (event.stream.videoType === 'screen') {
+      screenSharingSubscriberContainer = null;
+    } else {
+      cameraSubscriberContainer = null;
+    }
+    arrangeSubscribers();
+  });
+
   // Create a publisher
-  publisher = OT.initPublisher('publisher', {
+  var publisher = OT.initPublisher('publisher', {
     insertMode: 'append',
     width: '100%',
     height: '100%'
   }, handleError);
 
-  // Check whether screen sharing is possible. If possible, initialize screen sharing publisher
+  // Check whether screen sharing is possible. If possible, display the Share Screen button
   OT.checkScreenSharingCapability(function checkScreenSharingCapability(response) {
     if (!response.supported || response.extensionRegistered === false) {
       alert('screen sharing not supported');
     } else if (response.extensionInstalled === false) {
       alert('screen sharing extension required, please install one to share your screen');
     } else {
-      canPublish = true;
-      screenPublisher = OT.initPublisher('screen', {
-        insertMode: 'append',
-        width: '100%',
-        height: '100%',
-        videoSource: 'screen'
-      }, handleError);
+      screenSharingButton.style.display = 'block';
     }
   });
-
-  preventDefaults();
 
   // Connect to the session
   session.connect(token, function callback(error) {
@@ -93,11 +127,13 @@ function initializeSession() {
       handleError(error);
     } else {
       session.publish(publisher, handleError);
+
+      screenSharingButton.disabled = false;
+
+      // When the Share Screen button is pressed, call toggleScreen
+      screenSharingButton.addEventListener('click', toggleScreen);
     }
   });
-
-  // When the publish screen button is pressed, call toggleScreen
-  document.getElementById('screen-sharing').addEventListener('click', toggleScreen);
 }
 
 // See the config.js file.
