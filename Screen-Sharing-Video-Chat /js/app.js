@@ -1,12 +1,12 @@
 /* global OT API_KEY TOKEN SESSION_ID SAMPLE_SERVER_BASE_URL */
 
-let apiKey;
-let sessionId;
-let token;
-let screenPublisher;
-let session;
-let publisher;
-let canPublish = false;
+var apiKey;
+var sessionId;
+var token;
+var session;
+var publishingScreen = false;
+var screenSharingButton = document.getElementById('screen-sharing');
+
 // Handling all of our errors here by alerting them
 function handleError(error) {
   if (error) {
@@ -14,39 +14,35 @@ function handleError(error) {
   }
 }
 
-
 function toggleScreen() {
-  const screenSharing = document.getElementById('screen-sharing');
-  // If the screen publisher is connected to the session, unpublish screen and re-publish camera footage
-  if (screenPublisher.session) {
+  if (publishingScreen) {
     session.unpublish(screenPublisher);
-    session.publish(publisher, handleError);
-    screenSharing.classList.remove('toggle-button-on');
-    screenSharing.classList.add('toggle-button-off');
-  // Else, if the camera publisher is connected to the session, unpublish camera footage and re-publish screen
-  } else if (publisher.session) {
-    session.unpublish(publisher);
-    if (canPublish) {
-      session.publish(screenPublisher, handleError);
-    }
-    screenSharing.classList.add('toggle-button-on');
-    screenSharing.classList.remove('toggle-button-off');
+  } else  {
+    screenSharingButton.disabled = true;
+    var screenPublisher = OT.initPublisher('screen', {
+      insertMode: 'append',
+      width: '100%',
+      height: '100%',
+      videoSource: 'screen'
+    }, function handleInitPublishError(error) {
+      if (error) {
+        handleError(error);
+        screenSharingButton.disabled = false;
+        screenSharingButton.innerHTML = 'Share Screen';
+        publishingScreen = false;
+      } else {
+        screenSharingButton.disabled = false;
+        screenSharingButton.innerHTML = 'Stop Sharing Screen';
+        publishingScreen = true;
+      }
+    });
+    session.publish(screenPublisher, handleError);
+    screenPublisher.on('streamDestroyed', function streamDestroyedHandler() {
+      publishingScreen = false;
+      screenSharingButton.innerHTML = 'Share Screen';
+    });
+    screenSharingButton.innerHTML = 'Stop Sharing Screen';
   }
-}
-
-function preventDefaults() {
-  // If a stream is destroyed BY THIS CLIENT's publishers override default behaviour.
-  publisher.on('streamDestroyed', function preventSessionDefault(event) {
-    if (event.stream.connection.connectionId === session.connection.connectionId) {
-      event.preventDefault();
-    }
-  });
-
-  screenPublisher.on('streamDestroyed', function preventPublisherDefault(event) {
-    if (event.stream.connection.connectionId === session.connection.connectionId) {
-      event.preventDefault();
-    }
-  });
 }
 
 function initializeSession() {
@@ -54,37 +50,31 @@ function initializeSession() {
 
   // Subscribe to a newly created stream
   session.on('streamCreated', function streamCreated(event) {
-    session.subscribe(event.stream, 'subscriber', {
+    var container =  (event.stream.videoType === 'screen') ? 'screen' : 'subscriber';
+    session.subscribe(event.stream, container, {
       insertMode: 'append',
       width: '100%',
       height: '100%'
     }, handleError);
   });
+
   // Create a publisher
-  publisher = OT.initPublisher('publisher', {
+  var publisher = OT.initPublisher('publisher', {
     insertMode: 'append',
     width: '100%',
     height: '100%'
   }, handleError);
 
-  // Check whether screen sharing is possible. If possible, initialize screen sharing publisher
+  // Check whether screen sharing is possible. If possible, display the Share Screen button
   OT.checkScreenSharingCapability(function checkScreenSharingCapability(response) {
     if (!response.supported || response.extensionRegistered === false) {
       alert('screen sharing not supported');
     } else if (response.extensionInstalled === false) {
       alert('screen sharing extension required, please install one to share your screen');
     } else {
-      canPublish = true;
-      screenPublisher = OT.initPublisher('screen', {
-        insertMode: 'append',
-        width: '100%',
-        height: '100%',
-        videoSource: 'screen'
-      }, handleError);
+      screenSharingButton.style.display = 'block';
     }
   });
-
-  preventDefaults();
 
   // Connect to the session
   session.connect(token, function callback(error) {
@@ -93,11 +83,13 @@ function initializeSession() {
       handleError(error);
     } else {
       session.publish(publisher, handleError);
+
+      screenSharingButton.disabled = false;
+
+      // When the Share Screen button is pressed, call toggleScreen
+      screenSharingButton.addEventListener('click', toggleScreen);
     }
   });
-
-  // When the publish screen button is pressed, call toggleScreen
-  document.getElementById('screen-sharing').addEventListener('click', toggleScreen);
 }
 
 // See the config.js file.
